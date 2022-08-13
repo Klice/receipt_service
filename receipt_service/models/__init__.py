@@ -19,3 +19,11 @@ class Email:
     store: Store
     date: datetime.date
     body: str
+
+
+@dataclass
+class Transaction:
+    id: str
+    store_name: str
+    date: datetime.date
+    amount: int
