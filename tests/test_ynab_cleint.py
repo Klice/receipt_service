@@ -1,9 +1,10 @@
 import datetime
+import json
 from unittest.mock import Mock
 import pytest
 
 from receipt_service.clients.ynab_client import YNABClient
-from receipt_service.models import Transaction
+from receipt_service.models import LineItems, Receipt, Store, Transaction
 
 
 @pytest.fixture
@@ -14,12 +15,18 @@ def ynab_client():
     return client
 
 
-def test_ynab_parse_transactions(ynab_client: YNABClient):
-    transaction = '''
-{
-  "data": {
-    "transactions": [
-      {
+@pytest.fixture
+def receipt():
+    return Receipt(
+        datetime.date(2000, 1, 1),
+        [LineItems(1, 1, "l1"), LineItems(2, 2, "l2")],
+        Store("", "", "", "Metro")
+    )
+
+
+@pytest.fixture
+def ynab_transaction():
+    return '''{
         "id": "id",
         "date": "2019-12-04",
         "amount": 1,
@@ -28,7 +35,7 @@ def test_ynab_parse_transactions(ynab_client: YNABClient):
         "approved": true,
         "flag_color": "red",
         "account_id": "string",
-        "payee_id": "string",
+        "payee_id": "payee_id",
         "category_id": "string",
         "transfer_account_id": "string",
         "transfer_transaction_id": "string",
@@ -53,15 +60,33 @@ def test_ynab_parse_transactions(ynab_client: YNABClient):
             "deleted": true
           }
         ]
-      }
-    ],
-    "server_knowledge": 0
-  }
-}'''
-    ynab_client.network_client.get.return_value = transaction
-    t = Transaction(None, "1", datetime.date(2022, 1, 1), amount=1)
-    res = ynab_client.find_transactions(t)
-    params = {"since_date": "2022-01-01"}
+      }'''
+
+
+@pytest.fixture
+def transactions_response(ynab_transaction):
+    return json.dumps(
+        {"data": {
+            "transactions": [json.loads(ynab_transaction)],
+            "server_knowledge": 0
+        }}
+    )
+
+
+@pytest.fixture
+def transaction_response(ynab_transaction):
+    return json.dumps(
+        {"data": {
+            "transaction": json.loads(ynab_transaction),
+            "server_knowledge": 0
+        }}
+    )
+
+
+def test_ynab_get_transactions(ynab_client: YNABClient, receipt, transactions_response):
+    ynab_client.network_client.get.return_value = transactions_response
+    res = ynab_client.find_transactions(receipt)
+    params = {"since_date": "2000-01-01"}
     ynab_client.network_client.get.assert_called_once_with(
         "http://test.com/budgets/default/transactions",
         params=params,
@@ -73,3 +98,15 @@ def test_ynab_parse_transactions(ynab_client: YNABClient):
     assert res[0].store_name == "payee_name"
     assert res[0].amount == 1
     assert res[0].date == datetime.date(2019, 12, 4)
+
+
+def test_ynab_update_transaction(ynab_client: YNABClient, receipt, transaction_response):
+    ynab_client.network_client.get.return_value = transaction_response
+    ynab_client.network_client.put.return_value = '{}'
+    ynab_client.update_transaction("1", receipt)
+    subtransactions = ynab_client.network_client.put.call_args.kwargs['body']['subtransactions']
+    assert len(subtransactions) == 2
+    assert subtransactions[0]['amount'] == 1
+    assert subtransactions[0]['payee_name'] == "payee_name"
+    assert subtransactions[0]['payee_id'] == "payee_id"
+    assert subtransactions[1]['amount'] == 2

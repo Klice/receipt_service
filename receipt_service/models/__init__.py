@@ -49,7 +49,16 @@ class LineItems:
 class Receipt:
     date: datetime.date
     line_items: list[LineItems]
+    store: Store
 
     @property
     def amount(self):
         return sum([line_item.amount for line_item in self.line_items])
+
+    def to_transaction(self):
+        return Transaction(
+            id=None,
+            store_name=self.store.budget_name,
+            date=self.date,
+            amount=self.amount
+        )

@@ -78,6 +78,7 @@ def test_transaction_from_dict_with_extra_keys():
 def test_receipt():
     assert Receipt(
         date=datetime.date(2000, 1, 1),
+        store=Store("store", "store", "email", "store"),
         line_items=[
             LineItems(amount=1, name="l1", quantity=1)
         ]
@@ -87,6 +88,7 @@ def test_receipt():
 def test_receipt_total_amount():
     r = Receipt(
         date=datetime.date(2000, 1, 1),
+        store=Store("id", "name", "email", "budget_name"),
         line_items=[
             LineItems(amount=1, name="l1", quantity=1),
             LineItems(amount=3, name="l1", quantity=1),
@@ -94,3 +96,16 @@ def test_receipt_total_amount():
         ]
     )
     assert r.amount == 9
+
+
+def test_receipt_to_transaction():
+    t = Receipt(
+        date=datetime.date(2000, 1, 1),
+        store=Store("id", "name", "email", "budget_name"),
+        line_items=[
+            LineItems(amount=1, name="l1", quantity=1),
+            LineItems(amount=3, name="l1", quantity=1),
+            LineItems(amount=5, name="l1", quantity=1),
+        ]
+    ).to_transaction()
+    assert t == Transaction(None, "budget_name", datetime.date(2000, 1, 1), 9)

@@ -1,3 +1,4 @@
+import inspect
 from unittest.mock import Mock
 
 import pytest
@@ -20,6 +21,7 @@ def fake_api():
         endpoints = [
             "fake_news",
             "sub/fake_news",
+            "fake_news/{news_id}",
         ]
     return FakeAPI()
 
@@ -58,5 +60,17 @@ def test_api_client_generate_methods_calls_return(fake_api: APIClient):
     assert res2 == "222"
 
 
+def test_api_client_parametrized(fake_api: APIClient):
+    assert is_method_exists(fake_api, "get_fake_news_news_id")
+    fake_api.get_fake_news_news_id(news_id="ttt")
+    assert fake_api.network_client.get.call_args.args[0] == 'http://fake.com/fake_news/ttt'
+
+
 def is_method_exists(obj, method):
     return hasattr(obj, method) and callable(getattr(obj, method))
+
+
+def get_method_arg(obj, method):
+    m = getattr(obj, method)
+    a = inspect.getargspec(m)
+    return a.args
