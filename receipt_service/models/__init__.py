@@ -27,3 +27,29 @@ class Transaction:
     store_name: str
     date: datetime.date
     amount: int
+
+    @staticmethod
+    def from_dict(data):
+        return Transaction(
+            id=data.get("id"),
+            store_name=data.get("store_name"),
+            date=data.get("date"),
+            amount=data.get("amount"),
+        )
+
+
+@dataclass
+class LineItems:
+    amount: int
+    quantity: int
+    name: str
+
+
+@dataclass
+class Receipt:
+    date: datetime.date
+    line_items: list[LineItems]
+
+    @property
+    def amount(self):
+        return sum([line_item.amount for line_item in self.line_items])

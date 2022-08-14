@@ -1,5 +1,5 @@
 import datetime
-from receipt_service.models import Email, Store, Transaction
+from receipt_service.models import Email, LineItems, Receipt, Store, Transaction
 
 
 def test_models_store_init():
@@ -55,3 +55,42 @@ def test_transaction_model_init():
 
     assert transaction.store_name == "store"
     assert transaction.amount == 1
+
+
+def test_transaction_equal():
+    assert Transaction("1", "2", datetime.date(2001, 1, 1), 1) == Transaction("1", "2", datetime.date(2001, 1, 1), 1)
+
+
+def test_transaction_empty_id():
+    assert Transaction(None, "2", datetime.date(2001, 1, 1), 1)
+
+
+def test_transaction_from_dict_with_extra_keys():
+    t = Transaction.from_dict({
+        "amount": 1,
+        "date": datetime.date(2000, 1, 1),
+        "extra": "fff",
+        "store_name": "store"
+    })
+    assert t == Transaction(None, "store", datetime.date(2000, 1, 1), 1)
+
+
+def test_receipt():
+    assert Receipt(
+        date=datetime.date(2000, 1, 1),
+        line_items=[
+            LineItems(amount=1, name="l1", quantity=1)
+        ]
+    )
+
+
+def test_receipt_total_amount():
+    r = Receipt(
+        date=datetime.date(2000, 1, 1),
+        line_items=[
+            LineItems(amount=1, name="l1", quantity=1),
+            LineItems(amount=3, name="l1", quantity=1),
+            LineItems(amount=5, name="l1", quantity=1),
+        ]
+    )
+    assert r.amount == 9

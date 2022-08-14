@@ -9,6 +9,7 @@ from receipt_service.models import Transaction
 @pytest.fixture
 def ynab_client():
     client = YNABClient()
+    client.base_url = "http://test.com"
     client.network_client = Mock()
     return client
 
@@ -58,7 +59,14 @@ def test_ynab_parse_transactions(ynab_client: YNABClient):
   }
 }'''
     ynab_client.network_client.get.return_value = transaction
-    res = ynab_client.find_transactions(store_name="1", date=datetime.date(2022, 1, 1))
+    t = Transaction(None, "1", datetime.date(2022, 1, 1), amount=1)
+    res = ynab_client.find_transactions(t)
+    params = {"since_date": "2022-01-01"}
+    ynab_client.network_client.get.assert_called_once_with(
+        "http://test.com/budgets/default/transactions",
+        params=params,
+        body=None
+    )
     assert len(res) == 1
     assert isinstance(res[0], Transaction)
     assert res[0].id == "id"

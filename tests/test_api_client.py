@@ -34,9 +34,12 @@ def test_api_client_generate_methods(fake_api):
 def test_api_client_generate_methods_calls(fake_api: APIClient):
     fake_api.get_fake_news(params="1")
     fake_api.post_fake_news(params="1", body="2")
-    fake_api.network_client.get.assert_called_once_with(fake_api.base_url, params="1", body=None)
-    fake_api.network_client.post.assert_called_once_with(fake_api.base_url, params="1", body="2")
-    assert 2 == fake_api.response_parser.call_count
+    fake_api.get_sub_fake_news(params="1")
+
+    fake_api.network_client.get.assert_any_call(fake_api.base_url+"/fake_news", params="1", body=None)
+    fake_api.network_client.get.assert_any_call(fake_api.base_url+"/sub/fake_news", params="1", body=None)
+    fake_api.network_client.post.assert_called_once_with(fake_api.base_url+"/fake_news", params="1", body="2")
+    assert 3 == fake_api.response_parser.call_count
 
 
 def test_no_response_parser(fake_api: APIClient):
