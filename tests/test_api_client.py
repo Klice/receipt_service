@@ -1,4 +1,3 @@
-import inspect
 from unittest.mock import Mock
 
 import pytest
@@ -68,9 +67,3 @@ def test_api_client_parametrized(fake_api: APIClient):
 
 def is_method_exists(obj, method):
     return hasattr(obj, method) and callable(getattr(obj, method))
-
-
-def get_method_arg(obj, method):
-    m = getattr(obj, method)
-    a = inspect.getargspec(m)
-    return a.args
