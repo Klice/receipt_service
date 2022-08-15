@@ -1,0 +1,2 @@
+YNAB_TOKEN = ""
+YNAB_BUDGET = ""

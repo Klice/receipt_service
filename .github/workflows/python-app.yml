@@ -26,13 +26,7 @@ jobs:
     - name: Install pipenv
       run: |
         python -m pip install --upgrade pip pipenv
-    - id: cache-pipenv
-      uses: actions/cache@v1
-      with:
-        path: ~/.local/share/virtualenvs
-        key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile.lock') }}
     - name: Install dependencies
-      if: steps.cache-pipenv.outputs.cache-hit != 'true'
       run: |
         pipenv install --deploy --dev --system
     - name: Lint with flake8
@@ -43,4 +37,4 @@ jobs:
         pipenv run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pipenv run pytest
+        pipenv run pytest -m "not integtest"

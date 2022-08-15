@@ -1,17 +1,33 @@
 from datetime import date
-from receipt_service.clients.api_client import APIClient
+from receipt_service.clients.api_client import APIClient, BearerAuth
 from receipt_service.models import Receipt, Transaction
+from receipt_service.utils.config import get_conf
 
 
 class YNABClient(APIClient):
+    auth = BearerAuth(token=get_conf("YNAB_TOKEN"))
+    base_url = "https://api.youneedabudget.com/v1"
     endpoints = [
         "budgets/{budget_id}/transactions",
-        "budgets/{budget_id}/transactions/{transaction_id}"
+        "budgets/{budget_id}/transactions/{transaction_id}",
+        "budgets/{budget_id}/payees/{payee_id}/transactions",
+        "budgets/{budget_id}/payees",
     ]
-    budget = "default"
+    budget = get_conf("YNAB_BUDGET")
 
-    def find_transactions(self, receipt) -> list[Transaction]:
-        ret = self.get_budgets_budget_id_transactions(params={"since_date": str(receipt.date)}, budget_id=self.budget)
+    def get_payee_by_name(self, name):
+        payees = self.get_budgets_budget_id_payees(budget_id=self.budget)["data"]["payees"]
+        for p in payees:
+            if p["name"] == name and not p["deleted"]:
+                return p["id"]
+
+    def find_transactions(self, receipt: Receipt) -> list[Transaction]:
+        payee_id = self.get_payee_by_name(receipt.store.budget_name)
+        ret = self.get_budgets_budget_id_payees_payee_id_transactions(
+            params={"since_date": str(receipt.date)},
+            budget_id=self.budget,
+            payee_id=payee_id
+        )
         return self._response_to_transactions(ret)
 
     def update_transaction(self, transaction_id, receipt):
@@ -25,7 +41,7 @@ class YNABClient(APIClient):
         self.put_budgets_budget_id_transactions_transaction_id(
             transaction_id=transaction_id,
             budget_id=self.budget,
-            body=transaction
+            data=transaction
         )
 
     def get_transaction(self, transaction_id):

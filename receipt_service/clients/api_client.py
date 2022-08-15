@@ -1,15 +1,23 @@
+import copy
+from dataclasses import asdict, dataclass
 import json
 import re
+from typing import Any
 
 from receipt_service.clients.request_client import RequestClient
 
 
 class APIClient:
+    auth = None
     base_url: str = None
+    headers = None
     network_client = RequestClient
     def response_parser(self, x): return json.loads(x)
     endpoints = None
     methods = ['post', 'get', 'put']
+    headers = {
+        "Content-Type": "application/json; charset=utf-8"
+    }
 
     def __init__(self, network_client=None):
         if network_client:
@@ -45,13 +53,46 @@ class APIClient:
         return '_'.join(map(str.lower, words))
 
     def _get_method_implementation(self, method, endpoint):
-        def api_method(params=None, body=None, **kwargs):
-            res = getattr(self.network_client, method)(
-                f"{self.base_url}/{endpoint.format(**kwargs)}",
+        def api_method(params=None, data=None, headers=None, **kwargs):
+            if self.headers:
+                req_headers = copy.deepcopy(self.headers)
+                if headers:
+                    req_headers.update(headers)
+            else:
+                req_headers = headers
+
+            context = RequestContext(
+                url=f"{self.base_url}/{endpoint.format(**kwargs)}",
                 params=params,
-                body=body
+                data=data,
+                headers=req_headers,
             )
+            if self.auth:
+                self.auth.authenticate(context)
+            res = getattr(self.network_client, method)(**asdict(context))
             if self.response_parser:
                 return self.response_parser(res)
             return res
         return api_method
+
+
+@dataclass
+class RequestContext:
+    url: str
+    params: dict = None
+    data: Any = None
+    headers: Any = None
+
+
+class BearerAuth:
+    token = None
+
+    def __init__(self, token):
+        self.token = token
+
+    def authenticate(self, context: RequestContext):
+        res = {'Authorization': f"Bearer {self.token}"}
+        if context.headers:
+            context.headers.update(res)
+        else:
+            context.headers = res

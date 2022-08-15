@@ -12,6 +12,7 @@ def ynab_client():
     client = YNABClient()
     client.base_url = "http://test.com"
     client.network_client = Mock()
+    client.auth = None
     return client
 
 
@@ -84,13 +85,15 @@ def transaction_response(ynab_transaction):
 
 
 def test_ynab_get_transactions(ynab_client: YNABClient, receipt, transactions_response):
+    ynab_client.get_payee_by_name = lambda x: "payees123"
     ynab_client.network_client.get.return_value = transactions_response
     res = ynab_client.find_transactions(receipt)
     params = {"since_date": "2000-01-01"}
     ynab_client.network_client.get.assert_called_once_with(
-        "http://test.com/budgets/default/transactions",
+        url=f"http://test.com/budgets/{ynab_client.budget}/payees/payees123/transactions",
         params=params,
-        body=None
+        data=None,
+        headers=ynab_client.headers,
     )
     assert len(res) == 1
     assert isinstance(res[0], Transaction)
@@ -104,9 +107,42 @@ def test_ynab_update_transaction(ynab_client: YNABClient, receipt, transaction_r
     ynab_client.network_client.get.return_value = transaction_response
     ynab_client.network_client.put.return_value = '{}'
     ynab_client.update_transaction("1", receipt)
-    subtransactions = ynab_client.network_client.put.call_args.kwargs['body']['subtransactions']
+    subtransactions = ynab_client.network_client.put.call_args.kwargs['data']['subtransactions']
     assert len(subtransactions) == 2
     assert subtransactions[0]['amount'] == 1
     assert subtransactions[0]['payee_name'] == "payee_name"
     assert subtransactions[0]['payee_id'] == "payee_id"
     assert subtransactions[1]['amount'] == 2
+
+
+def test_get_payee_id_by_name(ynab_client: YNABClient):
+    payee_response = '''{
+  "data": {
+    "payees": [
+      {
+        "id": "id",
+        "name": "name",
+        "transfer_account_id": "string",
+        "deleted": true
+      },
+      {
+        "id": "metro_id",
+        "name": "metro",
+        "transfer_account_id": "string",
+        "deleted": true
+      },
+      {
+        "id": "metro_id2",
+        "name": "metro",
+        "transfer_account_id": "string",
+        "deleted": false
+      }
+    ],
+    "server_knowledge": 0
+  }
+}'''
+    ynab_client.network_client.get.return_value = payee_response
+    payee_id = ynab_client.get_payee_by_name("metro")
+    called_url = ynab_client.network_client.get.call_args.kwargs["url"]
+    assert called_url == f"http://test.com/budgets/{ynab_client.budget}/payees"
+    assert payee_id == "metro_id2"
