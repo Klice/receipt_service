@@ -12,7 +12,12 @@ class RequestClient:
 
     @classmethod
     def put(cls, url, params, data, headers):
-        return requests.put(url, params=params, data=data, headers=headers).text
+        res = requests.put(url, params=params, data=data, headers=headers)
+        return res.text
+
+    @classmethod
+    def delete(cls, url, params, data, headers):
+        return requests.delete(url, params=params, data=data, headers=headers).text
 
 
 class NoOpClient:
@@ -26,4 +31,8 @@ class NoOpClient:
 
     @classmethod
     def put(cls, url, params, data, headers):
+        pass
+
+    @classmethod
+    def delete(cls, url, params, data, headers):
         pass

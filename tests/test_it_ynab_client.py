@@ -33,6 +33,19 @@ def test_find_transaction(client: YNABClient, receipt):
     assert transactions[-1].id == '8388c777-64de-4036-b8c4-378639a3910b'
 
 
+@pytest.mark.skip(reason="no delete functionality")
+@pytest.mark.integtest
+def test_update_transaction_empty_subtransactions(client: YNABClient, receipt: Receipt):
+    receipt.line_items = []
+    transaction = client.get_transaction('8388c777-64de-4036-b8c4-378639a3910b')
+    for t in transaction["subtransactions"]:
+        client.delete_transaction(t["transaction_id"])
+    # client.update_transaction('8388c777-64de-4036-b8c4-378639a3910b', receipt)
+    transaction = client.get_transaction('8388c777-64de-4036-b8c4-378639a3910b')
+    assert len(transaction["subtransactions"]) == 0
+
+
+@pytest.mark.skip(reason="no delete functionality, can't clean up after inserting")
 @pytest.mark.integtest
 def test_update_transaction(client: YNABClient, receipt):
     client.update_transaction('8388c777-64de-4036-b8c4-378639a3910b', receipt)

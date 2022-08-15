@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 from receipt_service.clients.api_client import APIClient, BearerAuth, RequestContext
 from receipt_service.clients.request_client import NoOpClient
-from tests.agrs_matchers import dict_contains
+from tests.helpers import dict_contains
 
 
 @pytest.fixture

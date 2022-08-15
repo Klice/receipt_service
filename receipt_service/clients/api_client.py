@@ -7,16 +7,29 @@ from typing import Any
 from receipt_service.clients.request_client import RequestClient
 
 
+@dataclass
+class RequestContext:
+    url: str
+    params: dict = None
+    data: Any = None
+    headers: Any = None
+
+
 class APIClient:
     auth = None
     base_url: str = None
     headers = None
     network_client = RequestClient
-    def response_parser(self, x): return json.loads(x)
+    def response_processor(self, x): return json.loads(x)
+
+    def request_processor(self, x: RequestContext):
+        x.data = json.dumps(x.data)
+        return x
     endpoints = None
-    methods = ['post', 'get', 'put']
+    methods = ['post', 'get', 'put', 'delete']
     headers = {
-        "Content-Type": "application/json; charset=utf-8"
+        "Content-Type": "application/json; charset=utf-8",
+        "accept": "application/json",
     }
 
     def __init__(self, network_client=None):
@@ -69,19 +82,13 @@ class APIClient:
             )
             if self.auth:
                 self.auth.authenticate(context)
+            if self.request_processor:
+                context = self.request_processor(context)
             res = getattr(self.network_client, method)(**asdict(context))
-            if self.response_parser:
-                return self.response_parser(res)
+            if self.response_processor:
+                return self.response_processor(res)
             return res
         return api_method
-
-
-@dataclass
-class RequestContext:
-    url: str
-    params: dict = None
-    data: Any = None
-    headers: Any = None
 
 
 class BearerAuth:

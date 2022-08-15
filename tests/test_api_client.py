@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 from unittest.mock import ANY, Mock
 
@@ -5,7 +6,7 @@ import pytest
 
 from receipt_service.clients.api_client import APIClient, RequestContext
 from receipt_service.clients.request_client import NoOpClient
-from tests.agrs_matchers import dict_contains
+from tests.helpers import dict_contains, is_method_exists
 
 
 def test_api_client():
@@ -19,7 +20,8 @@ def fake_api():
     class FakeAPI(APIClient):
         base_url = "http://fake.com"
         network_client = mock.create_autospec(NoOpClient)
-        response_parser = Mock()
+        response_processor = Mock()
+        request_processor = Mock(side_effect=lambda x: x)
         endpoints = [
             "fake_news",
             "sub/fake_news",
@@ -33,11 +35,15 @@ def test_incorrect_args(fake_api):
         fake_api.network_client.get(b="1")
 
 
-def test_api_client_generate_methods(fake_api):
-    assert is_method_exists(fake_api, "get_fake_news")
-    assert is_method_exists(fake_api, "post_fake_news")
-    assert is_method_exists(fake_api, "get_sub_fake_news")
-    assert is_method_exists(fake_api, "post_sub_fake_news")
+@pytest.mark.parametrize("endpoint", [
+    "fake_news",
+    "sub_fake_news"
+])
+def test_api_client_generate_methods(fake_api, endpoint):
+    assert is_method_exists(fake_api, f"get_{endpoint}")
+    assert is_method_exists(fake_api, f"post_{endpoint}")
+    assert is_method_exists(fake_api, f"put_{endpoint}")
+    assert is_method_exists(fake_api, f"delete_{endpoint}")
 
 
 def test_api_client_generate_methods_calls(fake_api: APIClient):
@@ -50,7 +56,7 @@ def test_api_client_generate_methods_calls(fake_api: APIClient):
     fake_api.network_client.post.assert_called_once_with(
         fake_api.base_url+"/fake_news", params="1", data="2", headers=fake_api.headers
     )
-    assert 3 == fake_api.response_parser.call_count
+    assert 3 == fake_api.response_processor.call_count
 
 
 def test_api_client_headers(fake_api: APIClient):
@@ -60,14 +66,31 @@ def test_api_client_headers(fake_api: APIClient):
     )
 
 
-def test_no_response_parser(fake_api: APIClient):
-    fake_api.response_parser = None
+def test_no_request_processor(fake_api: APIClient):
+    fake_api.request_processor = None
+    fake_api.get_fake_news(params="321", data="ddd")
+    fake_api.network_client.get.assert_any_call(fake_api.base_url+"/fake_news", params="321", data="ddd", headers=ANY)
+
+
+def test_json_request_processor(fake_api: APIClient):
+    def processor(r: RequestContext):
+        r.data = json.dumps(r.data)
+        return r
+    fake_api.request_processor = processor
+    fake_api.get_fake_news(params="321", data={"a": "b"})
+    fake_api.network_client.get.assert_any_call(
+        fake_api.base_url+"/fake_news", params="321", data='{"a": "b"}', headers=ANY
+    )
+
+
+def test_no_response_processor(fake_api: APIClient):
+    fake_api.response_processor = None
     fake_api.network_client.get.return_value = "111"
     assert fake_api.get_fake_news(params="1") == "111"
 
 
 def test_api_client_generate_methods_calls_return(fake_api: APIClient):
-    fake_api.response_parser = lambda x: x
+    fake_api.response_processor = lambda x: x
     fake_api.network_client.get.return_value = "111"
     fake_api.network_client.post.return_value = "222"
     res1 = fake_api.get_fake_news(params="1")
@@ -97,7 +120,3 @@ def test_headers(fake_api: APIClient):
     fake_api.network_client.get.return_value = "111"
     fake_api.get_fake_news(params="1", data="2")
     assert fake_api.network_client.get.call_args.kwargs["headers"] == {"a": "b"}
-
-
-def is_method_exists(obj, method):
-    return hasattr(obj, method) and callable(getattr(obj, method))
